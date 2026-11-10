@@ -4,12 +4,32 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const app = require('../src/app');
+const { createDocumentsRepository } = require('../src/repositories/documents.repository');
 
 // Teste de fumaça do seed: garante que o app Express foi exportado.
 // Novos testes serão adicionados durante os Steps 2, 6 e 7 com auxílio do Copilot.
 test('o app backend é exportado', () => {
   assert.ok(app, 'o app deve estar definido');
   assert.strictEqual(typeof app, 'function', 'o app Express deve ser uma função');
+});
+
+test('o repositório rejeita caminhos fora do diretório de armazenamento', async () => {
+  const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dms-test-'));
+  const repository = createDocumentsRepository({ storageDir });
+
+  try {
+    assert.throws(
+      () => repository.getFilePath('../outside'),
+      { code: 'INVALID_STORAGE_NAME' },
+    );
+    assert.throws(
+      () => repository.getFilePath(path.resolve(storageDir, '..', 'outside')),
+      { code: 'INVALID_STORAGE_NAME' },
+    );
+    assert.strictEqual(repository.getFilePath('document-id'), path.join(storageDir, 'document-id'));
+  } finally {
+    await fs.rm(storageDir, { recursive: true, force: true });
+  }
 });
 
 test('a API permite enviar, listar e baixar documentos por owner', async () => {
@@ -148,6 +168,64 @@ test('a API retorna 404 quando o arquivo local não está disponível', async ()
 
     assert.strictEqual(downloadResponse.status, 404);
     assert.strictEqual((await downloadResponse.json()).error.code, 'DOCUMENT_NOT_FOUND');
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await fs.rm(storageDir, { recursive: true, force: true });
+  }
+});
+
+test('a API limita os campos multipart adicionais', async () => {
+  const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dms-test-'));
+  const testApp = app.createApp({ storageDir, maxFileSize: 1024 });
+  const server = testApp.listen(0);
+
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const formData = new FormData();
+    formData.append('owner', 'usuario-123');
+    formData.append('extra', 'campo não permitido');
+    formData.append('file', new Blob(['conteudo']), 'relatorio.txt');
+
+    const response = await fetch(`${baseUrl}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    assert.strictEqual(response.status, 400);
+    assert.strictEqual((await response.json()).error.code, 'UPLOAD_ERROR');
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await fs.rm(storageDir, { recursive: true, force: true });
+  }
+});
+
+test('a falha no diretório de upload não é reportada como documento ausente', async () => {
+  const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dms-test-'));
+  const testApp = app.createApp({ storageDir, maxFileSize: 1024 });
+  await fs.rm(storageDir, { recursive: true, force: true });
+  const server = testApp.listen(0);
+
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const formData = new FormData();
+    formData.append('owner', 'usuario-123');
+    formData.append('file', new Blob(['conteudo']), 'relatorio.txt');
+
+    const response = await fetch(`${baseUrl}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    assert.strictEqual(response.status, 500);
+    assert.strictEqual((await response.json()).error.code, 'INTERNAL_SERVER_ERROR');
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));

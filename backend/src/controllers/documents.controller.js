@@ -27,6 +27,13 @@ function createDocumentsController(service) {
           { headers: { 'Content-Type': 'application/octet-stream' } },
           (error) => {
             if (error) {
+              if (error.code === 'ENOENT') {
+                const notFoundError = new Error('Documento não encontrado.');
+                notFoundError.status = 404;
+                notFoundError.code = 'DOCUMENT_NOT_FOUND';
+                return next(notFoundError);
+              }
+
               next(error);
             }
           },

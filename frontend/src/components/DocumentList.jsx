@@ -1,10 +1,5 @@
 import DownloadButton from './DownloadButton.jsx';
-
-function formatFileSize(size) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { formatFileSize } from '../utils/formatFileSize.js';
 
 function formatDate(value) {
   const date = new Date(value);
@@ -24,7 +19,7 @@ export default function DocumentList({
   onReload,
 }) {
   return (
-    <section className="document-section" aria-labelledby="documents-heading">
+    <section className="document-section" aria-labelledby="documents-heading" aria-busy={isLoading}>
       <div className="section-heading">
         <div className="section-heading__title">
           <span className="section-index">02</span>
@@ -43,7 +38,7 @@ export default function DocumentList({
 
       {error && <p className="list-message list-message--error" role="alert">{error}</p>}
       {isLoading ? (
-        <p className="list-message">Carregando documentos...</p>
+        <p className="list-message" role="status">Carregando documentos...</p>
       ) : !hasLoaded ? (
         <p className="list-message">Nenhuma lista carregada.</p>
       ) : documents.length === 0 ? (

@@ -6,7 +6,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --ink: #1e302d;
-  --muted: #74817b;
+  --muted: #5f6b64;
   --line: #dce3dd;
   --green: #15745c;
   --green-dark: #10513f;
@@ -37,7 +37,7 @@ button:focus-visible,
 input:focus-visible,
 a:focus-visible,
 .drop-zone:focus-within {
-  outline: 3px solid rgba(21, 116, 92, 0.35);
+  outline: 3px solid #0b5d49;
   outline-offset: 3px;
 }
 
@@ -166,7 +166,7 @@ a:focus-visible,
 }
 
 .owner-form input::placeholder {
-  color: #9aa49e;
+  color: var(--muted);
 }
 
 .button {

@@ -1,11 +1,6 @@
 import { useRef, useState } from 'react';
 import { uploadDocument } from '../services/documentsApi.js';
-
-function formatFileSize(size) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { formatFileSize } from '../utils/formatFileSize.js';
 
 export default function UploadComponent({ owner, onUploaded }) {
   const inputRef = useRef(null);
@@ -30,16 +25,24 @@ export default function UploadComponent({ owner, onUploaded }) {
     setError('');
     setSuccess('');
 
+    let uploadedDocument;
     try {
-      const document = await uploadDocument(file, owner);
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = '';
-      setSuccess(`${document.originalName} enviado.`);
-      await onUploaded?.(document);
+      uploadedDocument = await uploadDocument(file, owner);
     } catch (uploadError) {
       setError(uploadError.message);
+      return;
     } finally {
       setIsUploading(false);
+    }
+
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+    setSuccess(`${uploadedDocument.originalName} enviado.`);
+
+    try {
+      await onUploaded?.(uploadedDocument);
+    } catch {
+      setError('Documento enviado, mas não foi possível atualizar a lista.');
     }
   }
 

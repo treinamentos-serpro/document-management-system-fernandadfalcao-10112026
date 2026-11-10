@@ -8,17 +8,13 @@ function errorHandler(error, req, res, next) {
   }
 
   let status = error.status || 500;
-  let code = error.code || 'INTERNAL_SERVER_ERROR';
+  let code = error.status ? (error.code || 'REQUEST_ERROR') : 'INTERNAL_SERVER_ERROR';
   let message = status === 500 ? 'Erro interno do servidor.' : error.message;
 
   if (error.code === 'LIMIT_FILE_SIZE') {
     status = 413;
     code = 'FILE_TOO_LARGE';
     message = 'O arquivo excede o tamanho máximo permitido.';
-  } else if (error.code === 'ENOENT') {
-    status = 404;
-    code = 'DOCUMENT_NOT_FOUND';
-    message = 'Documento não encontrado.';
   } else if (error instanceof multer.MulterError) {
     status = 400;
     code = 'UPLOAD_ERROR';
@@ -36,7 +32,13 @@ function createDocumentsRouter({ controller, storageDir, maxFileSize }) {
       destination: (_req, _file, callback) => callback(null, storageDir),
       filename: (_req, _file, callback) => callback(null, randomUUID()),
     }),
-    limits: { fileSize: maxFileSize },
+    limits: {
+      fileSize: maxFileSize,
+      files: 1,
+      fields: 1,
+      fieldSize: 64 * 1024,
+      parts: 3,
+    },
   });
 
   router.post('/upload', upload.single('file'), controller.upload);

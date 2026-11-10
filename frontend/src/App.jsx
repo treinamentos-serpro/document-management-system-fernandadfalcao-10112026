@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import DocumentList from './components/DocumentList.jsx';
 import UploadComponent from './components/UploadComponent.jsx';
 import { listDocuments } from './services/documentsApi.js';
@@ -11,11 +11,14 @@ export default function App() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [listError, setListError] = useState('');
+  const loadRequestId = useRef(0);
 
   async function loadDocuments(targetOwner) {
+    const requestId = ++loadRequestId.current;
     const normalizedOwner = targetOwner.trim();
     if (!normalizedOwner) {
       setListError('Informe um identificador de usuário.');
+      setIsLoading(false);
       return;
     }
 
@@ -23,18 +26,25 @@ export default function App() {
     setListError('');
     try {
       const result = await listDocuments(normalizedOwner);
+      if (requestId !== loadRequestId.current) return;
       setDocuments(result);
       setLoadedOwner(normalizedOwner);
       setHasLoaded(true);
     } catch (error) {
-      setListError(error.message);
+      if (requestId === loadRequestId.current) {
+        setListError(error.message);
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestId.current) {
+        setIsLoading(false);
+      }
     }
   }
 
   function handleOwnerChange(event) {
     const nextOwner = event.target.value;
+    loadRequestId.current += 1;
+    setIsLoading(false);
     setOwner(nextOwner);
     if (nextOwner.trim() !== loadedOwner) {
       setDocuments([]);
