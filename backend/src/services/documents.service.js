@@ -13,6 +13,15 @@ function validateOwner(owner) {
   }
 }
 
+async function findDownloadableDocument(repository, id, owner) {
+  const document = await repository.findByIdAndOwner(id, owner);
+  if (!document || !(await repository.fileExists(document.storageName))) {
+    throw createServiceError(404, 'DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
+  }
+
+  return document;
+}
+
 function createDocumentsService(repository) {
   return {
     async upload({ file, owner }) {
@@ -51,14 +60,7 @@ function createDocumentsService(repository) {
 
     async getDownload(id, owner) {
       validateOwner(owner);
-      const document = await repository.findByIdAndOwner(id, owner);
-      if (!document) {
-        throw createServiceError(404, 'DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
-      }
-
-      if (!(await repository.fileExists(document.storageName))) {
-        throw createServiceError(404, 'DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
-      }
+      const document = await findDownloadableDocument(repository, id, owner);
 
       return {
         filePath: repository.getFilePath(document.storageName),
