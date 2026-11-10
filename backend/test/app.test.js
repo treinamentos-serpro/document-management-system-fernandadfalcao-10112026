@@ -6,8 +6,6 @@ const path = require('node:path');
 const app = require('../src/app');
 const { createDocumentsRepository } = require('../src/repositories/documents.repository');
 
-// Teste de fumaça do seed: garante que o app Express foi exportado.
-// Novos testes serão adicionados durante os Steps 2, 6 e 7 com auxílio do Copilot.
 test('o app backend é exportado', () => {
   assert.ok(app, 'o app deve estar definido');
   assert.strictEqual(typeof app, 'function', 'o app Express deve ser uma função');
@@ -61,9 +59,23 @@ test('a API permite enviar, listar e baixar documentos por owner', async () => {
     assert.strictEqual(document.owner, 'usuario-123');
     assert.strictEqual(document.size, Buffer.byteLength('conteudo'));
 
+    const otherOwnerFormData = new FormData();
+    otherOwnerFormData.append('owner', 'usuario-124');
+    otherOwnerFormData.append('file', new Blob(['privado']), 'privado.txt');
+    const otherOwnerUploadResponse = await fetch(`${baseUrl}/upload`, {
+      method: 'POST',
+      body: otherOwnerFormData,
+    });
+    assert.strictEqual(otherOwnerUploadResponse.status, 201);
+    const otherOwnerDocument = await otherOwnerUploadResponse.json();
+
     const listResponse = await fetch(`${baseUrl}/documents?owner=usuario-123`);
     assert.strictEqual(listResponse.status, 200);
     assert.deepStrictEqual(await listResponse.json(), [document]);
+
+    const otherOwnerListResponse = await fetch(`${baseUrl}/documents?owner=usuario-124`);
+    assert.strictEqual(otherOwnerListResponse.status, 200);
+    assert.deepStrictEqual(await otherOwnerListResponse.json(), [otherOwnerDocument]);
 
     const downloadResponse = await fetch(
       `${baseUrl}/documents/${document.id}/download?owner=usuario-123`,
@@ -76,6 +88,11 @@ test('a API permite enviar, listar e baixar documentos por owner', async () => {
       `${baseUrl}/documents/${document.id}/download?owner=outro-usuario`,
     );
     assert.strictEqual(wrongOwnerResponse.status, 404);
+
+    const missingDownloadOwnerResponse = await fetch(
+      `${baseUrl}/documents/${document.id}/download`,
+    );
+    assert.strictEqual(missingDownloadOwnerResponse.status, 400);
 
     const missingOwnerResponse = await fetch(`${baseUrl}/documents`);
     assert.strictEqual(missingOwnerResponse.status, 400);
